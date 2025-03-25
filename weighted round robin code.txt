@@ -1,0 +1,53 @@
+from flask import Flask, jsonify
+import requests
+
+app = Flask(__name__)
+
+# Define the IP addresses and ports of servers to be load balanced
+server_configs = [
+    {"ip": "4.245.200.97:8080", "name": "Server 52", "weight": 2},
+    {"ip": "4.245.206.228:8080", "name": "Server 53", "weight": 1}
+]
+
+# List to store the server index based on weights
+weighted_server_list = []
+
+# Populate the weighted server list based on weights
+for idx, server_config in enumerate(server_configs):
+    weighted_server_list.extend([idx] * server_config["weight"])
+
+current_weighted_server_index = 0
+
+@app.route('/')
+def weighted_round_robin_load_balance():
+    global current_weighted_server_index
+
+    # Get the current server index from the weighted list
+    current_server_index = weighted_server_list[current_weighted_server_index]
+
+    # Increment the index for the next request (weighted round-robin)
+    current_weighted_server_index = (current_weighted_server_index + 1) % len(weighted_server_list)
+
+    # Get the content from the selected server
+    selected_server_content = get_server_content(server_configs[current_server_index]["ip"])
+
+    # Prepare response
+    response = {
+        'selected_server': server_configs[current_server_index]["name"],
+        'selected_server_content': selected_server_content
+    }
+
+    return jsonify(response)
+
+def get_server_content(server_ip):
+    try:
+        response = requests.get(f"http://{server_ip}")
+        response.raise_for_status()  # Check for any HTTP errors
+        return response.content.decode('utf-8', 'ignore')  # Decode content to UTF-8
+    except requests.exceptions.RequestException as e:
+        # Handle the case where a server is unreachable or there's an error
+        print(f"Warning: Unable to retrieve content from {server_ip}. Error: {e}")
+        return f"Unable to retrieve content from {server_ip}"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
