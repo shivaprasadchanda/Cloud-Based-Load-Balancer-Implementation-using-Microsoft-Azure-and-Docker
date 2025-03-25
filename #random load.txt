@@ -1,0 +1,81 @@
+#random load
+
+from flask import Flask, jsonify
+import requests
+import random
+
+app = Flask(__name__)
+
+# Define the updated IP addresses, ports, and names of servers to be load-balanced
+server_configs = [
+    {"ip": "98.71.103.41:8080", "name": "Server 37"},
+    {"ip": "98.71.102.149:8080", "name": "Server 38"}
+]
+
+@app.route('/')
+def load_balance():
+    try:
+        server_loads = get_random_server_loads()
+
+        # Handle the case where no loads are available
+        if not server_loads:
+            return f"Load Balancer: No servers available\n"
+
+        selected_server, selected_load = select_server_based_on_load(server_loads)
+        loads_display = "\n".join([f"Load of {config['name']} {config['ip']}: {server_loads.get(config['ip'], 'N/A')}\n" for config in server_configs])
+
+        response = requests.get(f"http://{selected_server}/load")
+        selected_server_name = next(config["name"] for config in server_configs if config["ip"] == selected_server)
+
+        result = (
+            f"Load Balancer: Selected Server {selected_server_name} - {selected_server}\n"
+            f"Response: {response.text}\n"
+            f"{loads_display}"
+        )
+
+        return result
+
+    except Exception as e:
+        error_message = f"Internal Server Error: {str(e)}"
+        return jsonify({"error": error_message}), 500
+
+def select_server_based_on_load(server_loads):
+    # Handle the case where no loads are available
+    if not server_loads:
+        return None, None
+
+    # Find the server with the minimum load
+    selected_server = min(server_loads, key=server_loads.get)
+    selected_load = server_loads[selected_server]
+
+    return selected_server, selected_load
+
+def get_random_server_loads():
+    # Generate random loads for each server (for demonstration purposes)
+    server_loads = {}
+    for server_config in server_configs:
+        server_ip = server_config["ip"]
+        load = random.uniform(0, 100)  # Random load between 0 and 100
+        server_loads[server_ip] = load
+
+    return server_loads
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
+
+
+
+
+Explanation:
+
+This code is also a Flask application serving as a load balancer.
+The key difference is in how it determines server loads. Instead of querying actual servers, it generates random loads for demonstration purposes using the get_random_server_loads function.
+The random loads are assigned between 0 and 100, simulating different server loads.
+The rest of the code is similar to the first one, where it selects a server based on load, queries the selected server, and displays the results along with the loads of all servers.
+
+
+
+
+
+
+In summary, the main difference is in how server loads are obtained: the first code queries actual servers, while the second code generates random loads for testing purposes
